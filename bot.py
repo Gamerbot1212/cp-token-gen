@@ -21,17 +21,27 @@ def extract_username_domain(email):
 
 def wait_for_otp(username, domain):
     for _ in range(30):
-        inbox_url = f"https://www.1secmail.com/api/v1/?action=getMessages&login={username}&domain={domain}"
-        resp = requests.get(inbox_url)
-        messages = resp.json()
-        if messages:
-            msg_id = messages[0]["id"]
-            msg_url = f"https://www.1secmail.com/api/v1/?action=readMessage&login={username}&domain={domain}&id={msg_id}"
-            msg_data = requests.get(msg_url).json()
-            body = msg_data.get("body", "")
-            otp_match = re.search(r"\b(\d{4,6})\b", body)
-            if otp_match:
-                return otp_match.group(1)
+        try:
+            inbox_url = f"https://www.1secmail.com/api/v1/?action=getMessages&login={username}&domain={domain}"
+            resp = requests.get(inbox_url)
+            if resp.status_code != 200:
+                time.sleep(2)
+                continue
+            messages = resp.json()
+            if messages:
+                msg_id = messages[0]["id"]
+                msg_url = f"https://www.1secmail.com/api/v1/?action=readMessage&login={username}&domain={domain}&id={msg_id}"
+                msg_resp = requests.get(msg_url)
+                if msg_resp.status_code != 200:
+                    time.sleep(2)
+                    continue
+                msg_data = msg_resp.json()
+                body = msg_data.get("body", "")
+                otp_match = re.search(r"\b(\d{4,6})\b", body)
+                if otp_match:
+                    return otp_match.group(1)
+        except (requests.exceptions.JSONDecodeError, ValueError, KeyError):
+            pass
         time.sleep(2)
     return None
 
